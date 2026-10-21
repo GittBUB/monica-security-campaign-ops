@@ -27,6 +27,13 @@ Read [scope and limitations](#scope-and-limitations) before enabling writes.
 > people with access to the automation repository. Source-repository access restrictions do
 > not automatically protect copied report content.
 
+## Jira alternative
+
+Using Jira instead of GitHub Issues? See the [Jira alternative research and implementation
+considerations](docs/jira-alternative.md) for supported MCP integration, authentication,
+required workflow changes and relevant documentation. This is a feasibility guide, not an
+implemented Jira mode; the workflows in this repository still use GitHub Issues.
+
 ## Organization-wide setup: step by step
 
 ### 1. Choose the target organization and a central execution repository
