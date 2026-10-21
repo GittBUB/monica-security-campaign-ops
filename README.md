@@ -84,22 +84,64 @@ campaigns, not automatically enrolling every repository or processing every camp
 > assignment writes until you have checked issue discovery and the actual dry-run scope.
 > Weekly summaries and reminders do not use this fallback.
 
-### 4. Set a repository owner custom property
+### 4. Choose a custom property for alert assignment
 
-In the target organization's custom-property settings, create a string property named `owner`
-(or choose another name and set `CAMPAIGN_OWNER_PROPERTY` in step 6).
+**You do not need a property named `owner`, and the assignee does not have to be the
+repository owner.** `owner` is only the default property name. You can reuse an existing
+repository custom property or create a different string property in the target organization's
+custom-property settings to represent the person accountable for follow-up.
 
-Populate it on every repository that may be processed:
+Examples include:
 
-| Repository | Example `owner` value |
+| Custom property | Example value | Possible responsibility |
+| --- | --- | --- |
+| `product_manager` | `alice` | Coordinate product prioritization and remediation commitments. |
+| `project_manager` | `bob` | Track remediation delivery and campaign deadlines. |
+| `lead_engineer` | `charlie` | Investigate findings and coordinate technical fixes. |
+| `security_champion` | `dana` | Triage findings and coordinate security follow-up. |
+
+These names and responsibilities are examples, not special built-in fields. You may create
+several properties on a repository, but the current workflow reads **one selected assignment
+property per run**. For example, set `CAMPAIGN_OWNER_PROPERTY` to `lead_engineer` in step 6,
+then populate `lead_engineer` with the appropriate person's login on every repository that may
+be processed. The variable retains its existing name even when the property is not `owner`.
+
+Each selected property must contain **one individual GitHub login**, optionally prefixed with
+`@`, not a display name, team slug, email address or list. Job title alone does not grant
+assignment eligibility: the person must have the required repository access, including write
+access for alert assignment. A product or project manager without that access cannot be used
+as the alert assignee merely because their login is in a property.
+
+These custom properties are separate from `CODEOWNERS`; the workflow does not read
+`CODEOWNERS` to decide alert ownership. Repository-specific property values allow different
+people to receive alerts in different repositories while using the same selected property name.
+
+#### Ideas for routing different alerts to different properties
+
+The following are **possible workflow customizations, not current capabilities**. Adding
+multiple custom properties alone does not enable routing. Today, every eligible unassigned
+alert processed in a run uses that run's selected property, and existing assignees are preserved.
+
+| Possible routing criterion | Example idea |
 | --- | --- |
-| `YOUR-ORG/service-a` | `alice` |
-| `YOUR-ORG/service-b` | `bob` |
+| Campaign name or prefix | Route `security-code-*` campaigns to `lead_engineer` and `security-delivery-*` campaigns to `project_manager`. |
+| Alert severity | Route critical/high findings to `security_champion` and lower-severity findings to `lead_engineer`. |
+| Rule ID or rule family | Route injection-related rules to `backend_lead` and browser-related rules to `frontend_lead`. |
+| Code scanning tool | Route findings from different code scanning tools to properties for their respective specialists. |
+| Repository classification | Use a `service_type` or `business_unit` property to choose between `platform_lead` and `application_lead`. |
+| Deadline or escalation policy | Route initial triage to `lead_engineer`, and design separate overdue notifications for `project_manager` or `product_manager` rather than granting them alert-assignment access. |
 
-Use one individual GitHub login, optionally prefixed with `@`. Do not use a team slug, email
-address or a list. This property is separate from `CODEOWNERS`; the workflow does not read
-`CODEOWNERS` to decide alert ownership. The selected user must be eligible for alert assignment
-and have the required repository access.
+Implementing these ideas would require updating collection, routing rules, the agent prompt and
+write-side validation together, then recompiling the workflows and testing dry runs. Some
+criteria also require collecting additional data. Define rule precedence, behavior when a
+property is missing, and how existing assignments should be handled before enabling writes.
+
+**Campaign-based routing needs particular care:** the current repository-level alert lists are
+not exact campaign-alert membership, and assignment can fall back to organization-wide
+repositories. Separate runs with different prefixes/properties are therefore not reliable
+per-campaign routing: alert sets can overlap, and the first run can assign alerts the next run
+would otherwise consider. Establish verified campaign membership and an explicit overlap policy
+before implementing campaign-specific assignment.
 
 ### 5. Configure organization-wide authentication
 
@@ -332,7 +374,8 @@ handles notifications.
 - Assignment can broaden to organization-wide open-alert repositories when issue discovery
   finds none for an active campaign. Summary/reminder discovery instead reports missing details
   or has nobody to notify. Neither behavior is proof that the organization has no alerts.
-- The `owner` custom property must contain a single GitHub **user** login, with or without a
+- The selected assignment custom property (`owner` by default) must contain a single GitHub
+  **user** login, with or without a
   leading `@`. Alert assignees must have write access to the repository. Existing assignments
   are not replaced or redistributed. Missing values are reported; owner properties are not
   created or repaired automatically.
